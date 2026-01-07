@@ -1,0 +1,40 @@
+import requests
+import time
+# Configuración de OAuth
+oauth_url = "https://oauth.zettle.com/token"
+client_id = "YOUR_CLIENT_ID_HERE"
+api_key = "YOUR_API_KEY_HERE"
+
+# Función para obtener un nuevo token
+def obtener_token():
+    print("Solicitando un nuevo token...")
+    payload = {
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "client_id": client_id,
+        "assertion": api_key,
+    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    response = requests.post(oauth_url, data=payload, headers=headers)
+    if response.status_code == 200:
+        token_data = response.json()
+        access_token = token_data.get("access_token")
+        print("Token obtenido con éxito.")
+        return access_token
+    else:
+        print("Error al obtener el token:")
+        print(response.status_code, response.text)
+        return None
+
+# Clase para manejar el token automáticamente
+class TokenManager:
+    def __init__(self):
+        self.access_token = None
+        self.tiempo_expiracion = 0
+
+    def obtener_token_renovado(self):
+        # Si el token ha expirado o no existe, solicita uno nuevo
+        if not self.access_token or time.time() >= self.tiempo_expiracion:
+            self.access_token = obtener_token()
+            if self.access_token:
+                self.tiempo_expiracion = time.time() + 7200  # 2 horas
+        return self.access_token
