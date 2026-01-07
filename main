@@ -1,0 +1,22 @@
+from token_manager import TokenManager
+from purchase_processor import procesar_compras
+import time
+
+if __name__ == "__main__":
+    # Inicializar el manejador de tokens
+    token_manager = TokenManager()
+
+    
+
+    while True:
+        # Obtener un token renovado
+        access_token = token_manager.obtener_token_renovado()
+        
+
+        # Procesar compras si hay un token válido
+        if access_token:
+            procesar_compras(access_token)
+
+        # Esperar antes de verificar nuevamente
+        print("Esperando nuevas órdenes...")
+        time.sleep(10)  # Consulta cada 10 segundos
