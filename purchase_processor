@@ -1,0 +1,83 @@
+import requests
+import socket
+import time
+import json
+import os
+# Configuración de la API y ESP32
+url_compras = "https://purchase.izettle.com/purchases/v2"
+esp32_ip = ""  # Reemplaza con la IP de tu ESP32
+esp32_port = 12345          # Puerto de la ESP32
+start_date = ""   # Fecha inicial
+
+
+
+# LEDs asignados
+led_mapping = {
+    "Coca Cola": "LED1",
+    "Agua": "LED2",
+    "Agua Mineral": "LED3"
+}
+
+# Archivo para registrar compras procesadas
+ARCHIVO_PROCESADAS = "procesadas.json"
+
+# Cargar compras procesadas desde archivo
+if os.path.exists(ARCHIVO_PROCESADAS):
+    with open(ARCHIVO_PROCESADAS, "r") as f:
+        compras_procesadas = set(json.load(f))
+else:
+    compras_procesadas = set()
+
+# Guardar una compra como procesada
+def guardar_uuid(uuid):
+    compras_procesadas.add(uuid)
+    with open(ARCHIVO_PROCESADAS, "w") as f:
+        json.dump(list(compras_procesadas), f)
+
+# Función para enviar datos a la ESP32
+def enviar_a_esp32(orden):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((esp32_ip, esp32_port))
+            s.sendall(bytes(str(orden), "utf-8"))
+            print(f"Orden enviada a la ESP32: {orden}")
+    except Exception as e:
+        print(f"Error al enviar datos a la ESP32: {e}")
+
+# Función para procesar compras reales
+def procesar_compras(access_token):
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    params = {"startDate": start_date}
+    response = requests.get(url_compras, headers=headers, params=params)
+
+    if response.status_code == 200:
+        compras = response.json().get("purchases", [])
+        print("Procesando compras...")
+
+        for compra in compras:
+            compra_id = compra.get("purchaseUUID")
+            if compra_id in compras_procesadas:
+                continue  # Ya fue procesada
+
+            timestamp = compra.get("timestamp")
+            products = compra.get("products", [])
+
+            print(f"Compra nueva ID: {compra_id} - Timestamp: {timestamp}")
+            orden = {}
+
+            for producto in products:
+                nombre = producto.get("name")
+                cantidad = producto.get("quantity")
+
+                if nombre in led_mapping:
+                    orden[nombre] = cantidad
+
+            if orden:
+                enviar_a_esp32(orden)
+                guardar_uuid(compra_id)  # Guardar como procesada
+    else:
+        print(f"Error al obtener compras: {response.status_code}")
+        print(response.text)
